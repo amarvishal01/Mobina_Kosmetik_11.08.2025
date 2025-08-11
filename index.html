@@ -681,12 +681,13 @@
 
         // --- Voice Attendant Application Logic ---
         const voiceAttendantModal = document.getElementById('voice-attendant-modal');
+        let recognition; // Make recognition instance globally accessible within this scope
         
         function launchVoiceAttendant() {
             voiceAttendantModal.classList.add('active');
             voiceAttendantModal.innerHTML = `
                 <div class="w-full max-w-md h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl relative">
-                    <button id="close-voice-modal" class="absolute top-4 right-4 text-2xl text-gray-400 hover:text-gray-600">&times;</button>
+                    <button id="close-voice-modal" class="absolute top-4 right-4 text-2xl text-gray-400 hover:text-gray-600 z-10">&times;</button>
                     <div class="bg-[#B4A284] text-white p-4 rounded-t-2xl text-center">
                         <h1 class="text-xl font-bold font-serif">Live Booking Assistance</h1>
                     </div>
@@ -700,6 +701,7 @@
             `;
 
             document.getElementById('close-voice-modal').addEventListener('click', () => {
+                if(recognition) recognition.stop(); // Stop listening if active
                 voiceAttendantModal.classList.remove('active');
             });
 
@@ -738,8 +740,6 @@
             updateVoiceTranscript();
             setVoiceStatus('Speaking...');
             
-            // In a real app, you would fetch and play a pre-recorded audio file.
-            // For this MVP, we simulate the greeting and then start listening.
             await new Promise(resolve => setTimeout(resolve, 2500));
             listenForVoiceCommand();
         }
@@ -753,7 +753,7 @@
                 setVoiceStatus('Call Ended');
                 return;
             }
-            const recognition = new SpeechRecognition();
+            recognition = new SpeechRecognition();
             recognition.lang = document.documentElement.lang === 'fa' ? 'fa-IR' : (document.documentElement.lang === 'de' ? 'de-DE' : 'en-US');
             recognition.onresult = (event) => {
                 const userText = event.results[0][0].transcript;
@@ -772,9 +772,6 @@
         async function processVoiceCommand(userText) {
             setVoiceStatus('Processing...');
             try {
-                // ===================================================================
-                // FINAL INTEGRATION POINT: Replace this URL with your n8n Webhook URL
-                // ===================================================================
                 const n8nWebhookUrl = 'YOUR_N8N_WEBHOOK_URL_HERE'; 
                 
                 const response = await fetch(n8nWebhookUrl, {
@@ -792,11 +789,9 @@
                 updateVoiceTranscript();
                 setVoiceStatus('Speaking...');
 
-                // Play the audio from ElevenLabs
                 const audio = new Audio(botAudioUrl);
                 audio.play();
                 audio.onended = () => {
-                    // After the bot finishes speaking, listen again for the next command.
                     listenForVoiceCommand();
                 };
 
@@ -810,6 +805,60 @@
 
         document.getElementById('ai-booking-call-btn').addEventListener('click', launchVoiceAttendant);
         
+        // --- FIXED: Text Chatbot Logic ---
+        async function sendTextMessage(messageText) {
+            if (!messageText.trim()) return;
+            addChatMessage(messageText, 'user');
+            chatInput.value = '';
+            
+            const typingIndicator = document.createElement('div');
+            typingIndicator.id = 'typing-indicator';
+            typingIndicator.innerHTML = `<div class="bg-gray-200 text-text-dark p-3 rounded-lg inline-block max-w-xs text-sm">...</div>`;
+            chatMessages.appendChild(typingIndicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const n8nWebhookUrl = 'YOUR_N8N_WEBHOOK_URL_HERE'; // This can be the same or a different webhook
+                const response = await fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: messageText, isText: true }) // Differentiate text from voice
+                });
+                if (!response.ok) throw new Error('n8n webhook failed');
+                const data = await response.json();
+                
+                document.getElementById('typing-indicator')?.remove();
+                addChatMessage(data.botReplyText, 'bot');
+
+            } catch (error) {
+                console.error('Error with text chatbot:', error);
+                document.getElementById('typing-indicator')?.remove();
+                addChatMessage('Pardon, a technical issue has occurred.', 'bot');
+            }
+        }
+        
+        sendChatButton.addEventListener('click', () => sendTextMessage(chatInput.value));
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(chatInput.value); });
+        voiceChatButton.addEventListener('click', () => {
+            // This button can launch the main voice attendant or just do speech-to-text for the chat
+            listenForTextChat();
+        });
+
+        function listenForTextChat() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                addChatMessage('Pardon, voice service is not supported on your browser.');
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = document.documentElement.lang === 'fa' ? 'fa-IR' : (document.documentElement.lang === 'de' ? 'de-DE' : 'en-US');
+            recognition.onresult = (event) => {
+                chatInput.value = event.results[0][0].transcript;
+                sendTextMessage(chatInput.value);
+            };
+            recognition.start();
+        }
+
         // Initial calls on page load
         document.addEventListener('DOMContentLoaded', () => {
             fetchPosts();
