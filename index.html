@@ -119,6 +119,28 @@
         #chat-toggle { background-color: var(--accent-gold); }
         #chat-header { background-color: var(--accent-gold); }
         
+        /* Voice Attendant Modal Styles */
+        #voice-attendant-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #voice-attendant-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
         /* Spinner for loading state */
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--accent-gold); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -359,6 +381,11 @@
             <span class="font-semibold tracking-wider" data-lang-key="chat_toggle">AI Voice Concierge</span>
         </button>
     </div>
+    
+    <!-- AI Voice Attendant Modal -->
+    <div id="voice-attendant-modal">
+        <!-- The Voice Attendant UI will be injected here by JavaScript -->
+    </div>
 
     <script>
         // --- Translations Object ---
@@ -592,7 +619,7 @@
         chatToggle.addEventListener('click', () => { chatWindow.classList.remove('hidden'); chatToggle.classList.add('hidden'); });
         closeChatButton.addEventListener('click', () => { chatWindow.classList.add('hidden'); chatToggle.classList.remove('hidden'); });
 
-        function addMessage(message, sender = 'bot') {
+        function addChatMessage(message, sender = 'bot') {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('mb-3', 'text-sm');
             const contentDiv = document.createElement('div');
@@ -608,106 +635,16 @@
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
-
-        async function sendMessage(messageText, isVoice = false) {
-            if (!messageText.trim()) return;
-            addMessage(messageText, 'user');
-            chatInput.value = '';
-            
-            const typingIndicator = document.createElement('div');
-            typingIndicator.id = 'typing-indicator';
-            typingIndicator.innerHTML = `<div class="bg-gray-200 text-text-dark p-3 rounded-lg inline-block max-w-xs text-sm">...</div>`;
-            chatMessages.appendChild(typingIndicator);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            try {
-                // This is where you would call your n8n webhook which then calls Gemini and ElevenLabs
-                const webhookUrl = 'YOUR_N8N_WEBHOOK_URL_HERE'; // IMPORTANT: Replace with your n8n webhook
-                
-                const apiKey = ""; // Leave empty
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                const prompt = `You are an elite, discreet, and helpful digital concierge for 'Mobina Kosmetik', a high-end beauty sanctuary in Düsseldorf. Your name is 'Mobi'. Be concise, professional, and elegant. Answer the user's question: "${messageText}". Our signature protocols are The Düsseldorf Matrix™, Collagen Induction Therapy, and The Pre-Event Infusion. We are located at Steinstraße 35, 40210 Düsseldorf, and operate by appointment only.`;
-                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) throw new Error(`API request failed`);
-                const result = await response.json();
-                const botReply = result.candidates[0].content.parts[0].text;
-                
-                document.getElementById('typing-indicator')?.remove();
-                addMessage(botReply, 'bot');
-
-                if (isVoice) {
-                    console.log("Simulating playing audio response for: ", botReply);
-                }
-
-            } catch (error) {
-                console.error('Error communicating with backend:', error);
-                document.getElementById('typing-indicator')?.remove();
-                addMessage('Pardon, a technical issue has occurred. Please try again shortly.', 'bot');
-            }
-        }
-
-        sendChatButton.addEventListener('click', () => sendMessage(chatInput.value, false));
-        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(chatInput.value, false); });
-        
-        // --- Voice Input (Web Speech API) ---
-        function listen() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                addMessage('Pardon, voice service is not supported on your browser.');
-                return;
-            }
-            const recognition = new SpeechRecognition();
-            recognition.lang = document.documentElement.lang === 'fa' ? 'fa-IR' : 'de-DE';
-            recognition.onstart = () => voiceChatButton.classList.add('animate-pulse', 'text-red-500');
-            recognition.onresult = (event) => sendMessage(event.results[0][0].transcript, true); // Pass true for isVoice
-            recognition.onerror = () => addMessage('My apologies, I could not understand.');
-            recognition.onend = () => voiceChatButton.classList.remove('animate-pulse', 'text-red-500');
-            recognition.start();
-        }
-        voiceChatButton.addEventListener('click', listen);
-        
-        // --- AI Booking Call Logic ---
-        document.getElementById('ai-booking-call-btn').addEventListener('click', () => {
-            // This function would trigger the dedicated booking assistant.
-            // In a real app, this would open the 'AI Voice Attendant' application
-            // or trigger a specific n8n workflow for booking.
-            alert('Initiating AI Booking Attendant... (This would launch the voice booking application)');
-            console.log('N8N WORKFLOW TRIGGER: Initiate dedicated booking call workflow.');
-        });
         
         // --- Dynamic Journal/Blog Post Fetching ---
         async function fetchPosts() {
             const grid = document.getElementById('journal-grid');
             try {
-                // In a real application, this URL would be your n8n webhook endpoint
-                // that returns a JSON array of posts from a database or Google Sheet.
-                // const response = await fetch('YOUR_N8N_ENDPOINT_HERE');
-                // const posts = await response.json();
-                
                 // --- SIMULATED DATA (REMOVE FOR PRODUCTION) ---
                 const posts = [
-                    { 
-                        id: 1, 
-                        category: { en: "Skin Health", de: "Hautgesundheit", fa: "سلامت پوست" },
-                        title: { en: "The Science of Winter Skin: Protecting from the Cold", de: "Die Wissenschaft der Winterhaut: Schutz vor Kälte", fa: "علم پوست زمستانی: محافظت در برابر سرما" },
-                        snippet: { en: "As temperatures drop, our skin's physiology changes. Discover the science-backed strategies to protect the skin barrier and lock in moisture.", de: "Wenn die Temperaturen sinken, verändert sich die Physiologie unserer Haut. Entdecken Sie die wissenschaftlich fundierten Strategien, um die Hautbarriere zu schützen und Feuchtigkeit zu bewahren.", fa: "با کاهش دما، فیزیولوژی پوست ما تغییر می‌کند. استراتژی‌های علمی برای محافظت از سد پوستی و حفظ رطوبت را کشف کنید." },
-                        imageUrl: "https://images.unsplash.com/photo-1613231422037-2e4045a25b1b?auto=format&fit=crop&w=600&q=80"
-                    },
-                    { 
-                        id: 2, 
-                        category: { en: "Ingredient Spotlight", de: "Inhaltsstoffe im Fokus", fa: "مواد تشکیل دهنده در کانون توجه" },
-                        title: { en: "Decoding Peptides: The Building Blocks of Youth", de: "Peptide entschlüsseln: Die Bausteine der Jugend", fa: "رمزگشایی پپتیدها: بلوک‌های سازنده جوانی" },
-                        snippet: { en: "Peptides are more than a trend. We dive deep into cellular signaling and explain how these potent molecules stimulate collagen production for visibly firmer skin.", de: "Peptide sind mehr als nur ein Trend. Wir tauchen tief in die zelluläre Signalisierung ein und erklären, wie diese potenten Moleküle die Kollagenproduktion für eine sichtbar straffere Haut anregen.", fa: "پپتیدها فراتر از یک روند هستند. ما عمیقاً به سیگنال‌دهی سلولی می‌پردازیم و توضیح می‌دهیم که چگونه این مولکول‌های قوی تولید کلاژن را برای پوستی به وضوح سفت‌تر تحریک می‌کنند." },
-                        imageUrl: "https://images.unsplash.com/photo-1620916566398-39f1686d7070?auto=format&fit=crop&w=600&q=80"
-                    },
-                    { 
-                        id: 3, 
-                        category: { en: "Lifestyle & Skin", de: "Lifestyle & Haut", fa: "سبک زندگی و پوست" },
-                        title: { en: "Why Your CEO Needs a Skincare Protocol", de: "Warum Ihr CEO ein Hautpflegeprotokoll benötigt", fa: "چرا مدیرعامل شما به یک پروتکل مراقبت از پوست نیاز دارد" },
-                        snippet: { en: "Stress, travel, and long hours take their toll. A strategic skincare protocol is not a luxury, but an essential tool for peak performance and boardroom presence.", de: "Stress, Reisen und lange Arbeitszeiten fordern ihren Tribut. Ein strategisches Hautpflegeprotokoll ist kein Luxus, sondern ein wesentliches Instrument für Spitzenleistungen und Präsenz im Vorstandszimmer.", fa: "استرس، سفر و ساعات کاری طولانی عوارض خود را دارند. یک پروتکل استراتژیک مراقبت از پوست یک تجمل نیست، بلکه ابزاری ضروری برای عملکرد عالی و حضور در اتاق هیئت مدیره است." },
-                        imageUrl: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=600&q=80"
-                    }
+                    { id: 1, category: { en: "Skin Health", de: "Hautgesundheit", fa: "سلامت پوست" }, title: { en: "The Science of Winter Skin: Protecting from the Cold", de: "Die Wissenschaft der Winterhaut: Schutz vor Kälte", fa: "علم پوست زمستانی: محافظت در برابر سرما" }, snippet: { en: "As temperatures drop, our skin's physiology changes. Discover the science-backed strategies to protect the skin barrier and lock in moisture.", de: "Wenn die Temperaturen sinken, verändert sich die Physiologie unserer Haut. Entdecken Sie die wissenschaftlich fundierten Strategien, um die Hautbarriere zu schützen und Feuchtigkeit zu bewahren.", fa: "با کاهش دما، فیزیولوژی پوست ما تغییر می‌کند. استراتژی‌های علمی برای محافظت از سد پوستی و حفظ رطوبت را کشف کنید." }, imageUrl: "https://images.unsplash.com/photo-1613231422037-2e4045a25b1b?auto=format&fit=crop&w=600&q=80" },
+                    { id: 2, category: { en: "Ingredient Spotlight", de: "Inhaltsstoffe im Fokus", fa: "مواد تشکیل دهنده در کانون توجه" }, title: { en: "Decoding Peptides: The Building Blocks of Youth", de: "Peptide entschlüsseln: Die Bausteine der Jugend", fa: "رمزگشایی پپتیدها: بلوک‌های سازنده جوانی" }, snippet: { en: "Peptides are more than a trend. We dive deep into cellular signaling and explain how these potent molecules stimulate collagen production for visibly firmer skin.", de: "Peptide sind mehr als nur ein Trend. Wir tauchen tief in die zelluläre Signalisierung ein und erklären, wie diese potenten Moleküle die Kollagenproduktion für eine sichtbar straffere Haut anregen.", fa: "پپتیدها فراتر از یک روند هستند. ما عمیقاً به سیگنال‌دهی سلولی می‌پردازیم و توضیح می‌دهیم که چگونه این مولکول‌های قوی تولید کلاژن را برای پوستی به وضوح سفت‌تر تحریک می‌کنند." }, imageUrl: "https://images.unsplash.com/photo-1620916566398-39f1686d7070?auto=format&fit=crop&w=600&q=80" },
+                    { id: 3, category: { en: "Lifestyle & Skin", de: "Lifestyle & Haut", fa: "سبک زندگی و پوست" }, title: { en: "Why Your CEO Needs a Skincare Protocol", de: "Warum Ihr CEO ein Hautpflegeprotokoll benötigt", fa: "چرا مدیرعامل شما به یک پروتکل مراقبت از پوست نیاز دارد" }, snippet: { en: "Stress, travel, and long hours take their toll. A strategic skincare protocol is not a luxury, but an essential tool for peak performance and boardroom presence.", de: "Stress, Reisen und lange Arbeitszeiten fordern ihren Tribut. Ein strategisches Hautpflegeprotokoll ist kein Luxus, sondern ein wesentliches Instrument für Spitzenleistungen und Präsenz im Vorstandszimmer.", fa: "استرس، سفر و ساعات کاری طولانی عوارض خود را دارند. یک پروتکل استراتژیک مراقبت از پوست یک تجمل نیست، بلکه ابزاری ضروری برای عملکرد عالی و حضور در اتاق هیئت مدیره است." }, imageUrl: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=600&q=80" }
                 ];
                 // --- END SIMULATION ---
 
@@ -728,21 +665,12 @@
                     grid.appendChild(postEl);
                     
                     // Add translations for this dynamic content
-                    translations.en[`post_cat_${post.id}`] = post.category.en;
-                    translations.de[`post_cat_${post.id}`] = post.category.de;
-                    translations.fa[`post_cat_${post.id}`] = post.category.fa;
-                    translations.en[`post_title_${post.id}`] = post.title.en;
-                    translations.de[`post_title_${post.id}`] = post.title.de;
-                    translations.fa[`post_title_${post.id}`] = post.title.fa;
-                    translations.en[`post_snippet_${post.id}`] = post.snippet.en;
-                    translations.de[`post_snippet_${post.id}`] = post.snippet.de;
-                    translations.fa[`post_snippet_${post.id}`] = post.snippet.fa;
-                    translations.en[`post_readmore_${post.id}`] = "Read More";
-                    translations.de[`post_readmore_${post.id}`] = "Weiterlesen";
-                    translations.fa[`post_readmore_${post.id}`] = "بیشتر بخوانید";
+                    translations.en[`post_cat_${post.id}`] = post.category.en; translations.de[`post_cat_${post.id}`] = post.category.de; translations.fa[`post_cat_${post.id}`] = post.category.fa;
+                    translations.en[`post_title_${post.id}`] = post.title.en; translations.de[`post_title_${post.id}`] = post.title.de; translations.fa[`post_title_${post.id}`] = post.title.fa;
+                    translations.en[`post_snippet_${post.id}`] = post.snippet.en; translations.de[`post_snippet_${post.id}`] = post.snippet.de; translations.fa[`post_snippet_${post.id}`] = post.snippet.fa;
+                    translations.en[`post_readmore_${post.id}`] = "Read More"; translations.de[`post_readmore_${post.id}`] = "Weiterlesen"; translations.fa[`post_readmore_${post.id}`] = "بیشتر بخوانید";
                 });
                 
-                // Set initial language based on browser or default to German
                  switchLanguage('de');
 
             } catch (error) {
@@ -751,6 +679,137 @@
             }
         }
 
+        // --- Voice Attendant Application Logic ---
+        const voiceAttendantModal = document.getElementById('voice-attendant-modal');
+        
+        function launchVoiceAttendant() {
+            voiceAttendantModal.classList.add('active');
+            voiceAttendantModal.innerHTML = `
+                <div class="w-full max-w-md h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl relative">
+                    <button id="close-voice-modal" class="absolute top-4 right-4 text-2xl text-gray-400 hover:text-gray-600">&times;</button>
+                    <div class="bg-[#B4A284] text-white p-4 rounded-t-2xl text-center">
+                        <h1 class="text-xl font-bold font-serif">Live Booking Assistance</h1>
+                    </div>
+                    <div id="voice-transcript" class="flex-1 p-4 overflow-y-auto bg-[#FDFBF6] space-y-4">
+                        <!-- Transcript will be added here -->
+                    </div>
+                    <div id="voice-status" class="p-4 bg-white border-t border-gray-200 text-center text-lg font-bold text-[#B4A284]">
+                        Connecting...
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('close-voice-modal').addEventListener('click', () => {
+                voiceAttendantModal.classList.remove('active');
+            });
+
+            startVoiceConversation();
+        }
+
+        let voiceTranscript = [];
+        
+        function updateVoiceTranscript() {
+            const transcriptContainer = document.getElementById('voice-transcript');
+            if (!transcriptContainer) return;
+            transcriptContainer.innerHTML = '';
+            voiceTranscript.forEach(item => {
+                const messageEl = document.createElement('div');
+                messageEl.className = `flex items-start gap-3 ${item.speaker === 'user' ? 'flex-row-reverse' : ''}`;
+                messageEl.innerHTML = `
+                    <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${item.speaker === 'user' ? 'bg-gray-600' : 'bg-[#B4A284]'}">
+                        <i class="fas ${item.speaker === 'user' ? 'fa-user' : 'fa-headset'} text-white text-sm"></i>
+                    </div>
+                    <div class="p-3 rounded-lg max-w-xs text-sm ${item.speaker === 'user' ? 'bg-gray-200 text-text-dark' : 'bg-[#e9e4dd]'}">
+                        ${item.text}
+                    </div>
+                `;
+                transcriptContainer.appendChild(messageEl);
+            });
+            transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
+        }
+        
+        function setVoiceStatus(status) {
+            const statusContainer = document.getElementById('voice-status');
+            if(statusContainer) statusContainer.innerHTML = `<div class="animate-pulse">${status}</div>`;
+        }
+
+        async function startVoiceConversation() {
+            voiceTranscript = [{ speaker: 'bot', text: "Good day, this is Mobi, your booking attendant. How may I assist you today?" }];
+            updateVoiceTranscript();
+            setVoiceStatus('Speaking...');
+            
+            // In a real app, you would fetch and play a pre-recorded audio file.
+            // For this MVP, we simulate the greeting and then start listening.
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            listenForVoiceCommand();
+        }
+
+        function listenForVoiceCommand() {
+            setVoiceStatus('Listening...');
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                voiceTranscript.push({ speaker: 'bot', text: "Pardon, voice recognition is not supported on your browser." });
+                updateVoiceTranscript();
+                setVoiceStatus('Call Ended');
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = document.documentElement.lang === 'fa' ? 'fa-IR' : (document.documentElement.lang === 'de' ? 'de-DE' : 'en-US');
+            recognition.onresult = (event) => {
+                const userText = event.results[0][0].transcript;
+                voiceTranscript.push({ speaker: 'user', text: userText });
+                updateVoiceTranscript();
+                processVoiceCommand(userText);
+            };
+            recognition.onerror = () => {
+                voiceTranscript.push({ speaker: 'bot', text: 'My apologies, I could not understand. Please try again.' });
+                updateVoiceTranscript();
+                setTimeout(listenForVoiceCommand, 2000);
+            };
+            recognition.start();
+        }
+
+        async function processVoiceCommand(userText) {
+            setVoiceStatus('Processing...');
+            try {
+                // ===================================================================
+                // FINAL INTEGRATION POINT: Replace this URL with your n8n Webhook URL
+                // ===================================================================
+                const n8nWebhookUrl = 'YOUR_N8N_WEBHOOK_URL_HERE'; 
+                
+                const response = await fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: userText })
+                });
+
+                if (!response.ok) throw new Error('n8n webhook failed');
+
+                const data = await response.json();
+                const { botReplyText, botAudioUrl } = data;
+
+                voiceTranscript.push({ speaker: 'bot', text: botReplyText });
+                updateVoiceTranscript();
+                setVoiceStatus('Speaking...');
+
+                // Play the audio from ElevenLabs
+                const audio = new Audio(botAudioUrl);
+                audio.play();
+                audio.onended = () => {
+                    // After the bot finishes speaking, listen again for the next command.
+                    listenForVoiceCommand();
+                };
+
+            } catch (error) {
+                console.error("Error processing voice command:", error);
+                voiceTranscript.push({ speaker: 'bot', text: 'Pardon, a technical issue has occurred. The call will now end.' });
+                updateVoiceTranscript();
+                setVoiceStatus('Call Ended');
+            }
+        }
+
+        document.getElementById('ai-booking-call-btn').addEventListener('click', launchVoiceAttendant);
+        
         // Initial calls on page load
         document.addEventListener('DOMContentLoaded', () => {
             fetchPosts();
